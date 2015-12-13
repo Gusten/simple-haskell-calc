@@ -121,48 +121,48 @@ instance Arbitrary Expr where
 -- I am not going to calculate sin()cos(). First of all it's not exact
 -- and the approximation is gonna be waaay ugly.
 -- Also I missed the part with no including variables. Well I already did it so...
--- This quickly turned into quite a monster
+-- This quickly turned into quite a monster didn't it
 simplify :: Expr -> Expr
 simplify Var     = Var
 simplify (Num x) = Num x
 simplify (Sin e) = Sin (simplify e)
 simplify (Cos e) = Cos (simplify e)
 simplify (Add e1 e2) = case (Add p q) of 
-                      (Add (Num x) (Num y))       -> Num $ x+y
-                      (Add (Num 0) q) -> simplify q
-                      (Add p (Num 0)) -> simplify p
-                      (Add (Mul (Num x) a) b) | a == b -> (Mul (Num $ x+1) (simplify a))
-                      (Add a (Mul (Num x) b)) | a == b -> (Mul (Num $ x+1) (simplify a))
-                      (Add (Mul a (Num x)) b) | a == b -> (Mul (Num $ x+1) (simplify a))
-                      (Add a (Mul b (Num x))) | a == b -> (Mul (Num $ x+1) (simplify a))
-                      (Add (Mul (Num x) a) (Mul (Num y) b)) | a == b -> (Mul (Num $ x+y) (simplify a))
-                      (Add (Mul (Num x) a) (Mul b (Num y))) | a == b -> (Mul (Num $ x+y) (simplify a))
-                      (Add (Mul a (Num x)) (Mul b (Num y))) | a == b -> (Mul (Num $ x+y) (simplify a))
-                      (Add (Mul a (Num x)) (Mul (Num y) b)) | a == b -> (Mul (Num $ x+y) (simplify a))
-                      (Add x y)                   -> (Add x y)
-            where p = simplify e1
-                  q = simplify e2
+      (Add (Num x) (Num y))                          -> Num $ x+y
+      (Add (Num 0) q)                                -> simplify q
+      (Add p (Num 0))                                -> simplify p
+      (Add (Mul (Num x) a) b) | a == b               -> (Mul (Num $ x+1) (simplify a))
+      (Add a (Mul (Num x) b)) | a == b               -> (Mul (Num $ x+1) (simplify a))
+      (Add (Mul a (Num x)) b) | a == b               -> (Mul (Num $ x+1) (simplify a))
+      (Add a (Mul b (Num x))) | a == b               -> (Mul (Num $ x+1) (simplify a))
+      (Add (Mul (Num x) a) (Mul (Num y) b)) | a == b -> (Mul (Num $ x+y) (simplify a))
+      (Add (Mul (Num x) a) (Mul b (Num y))) | a == b -> (Mul (Num $ x+y) (simplify a))
+      (Add (Mul a (Num x)) (Mul b (Num y))) | a == b -> (Mul (Num $ x+y) (simplify a))
+      (Add (Mul a (Num x)) (Mul (Num y) b)) | a == b -> (Mul (Num $ x+y) (simplify a))
+      (Add x y)                                      -> (Add x y)
+    where p = simplify e1
+          q = simplify e2
 simplify (Mul e1 e2) = case (Mul p q) of 
-                      (Mul (Num x) (Num y)) -> Num $ x*y
-                      (Mul (Num 0) _)       -> Num 0
-                      (Mul _ (Num 0))       -> Num 0
-                      (Mul (Num 1) q)       -> simplify q
-                      (Mul p (Num 1))       -> simplify p 
-                      (Mul (Num x) (Mul (Num y) e)) -> Mul (Num (x*y)) $ simplify e
-                      (Mul (Num x) (Mul e (Num y))) -> Mul (Num (x*y)) $ simplify e
-                      (Mul (Mul (Num x) e) (Num y)) -> Mul (Num (x*y)) $ simplify e
-                      (Mul (Mul e (Num x)) (Num y)) -> Mul (Num (x*y)) $ simplify e
-                      (Mul (Mul (Num x) a) (Mul (Num y) b)) | a == b -> (Mul (Num $ x*y) (Mul n n))
-                                                where n = simplify a
-                      (Mul (Mul (Num x) a) (Mul b (Num y))) | a == b -> (Mul (Num $ x*y) (Mul n n))
-                                                where n = simplify a
-                      (Mul (Mul a (Num x)) (Mul b (Num y))) | a == b -> (Mul (Num $ x*y) (Mul n n))
-                                                where n = simplify a
-                      (Mul (Mul a (Num x)) (Mul (Num y) b)) | a == b -> (Mul (Num $ x*y) (Mul n n))
-                                                where n = simplify a
-                      (Mul x y)             -> (Mul x y)
-            where p = simplify e1
-                  q = simplify e2
+      (Mul (Num x) (Num y))                          -> Num $ x*y
+      (Mul (Num 0) _)                                -> Num 0
+      (Mul _ (Num 0))                                -> Num 0
+      (Mul (Num 1) q)                                -> simplify q
+      (Mul p (Num 1))                                -> simplify p 
+      (Mul (Num x) (Mul (Num y) e))                  -> Mul (Num (x*y)) $ simplify e
+      (Mul (Num x) (Mul e (Num y)))                  -> Mul (Num (x*y)) $ simplify e
+      (Mul (Mul (Num x) e) (Num y))                  -> Mul (Num (x*y)) $ simplify e
+      (Mul (Mul e (Num x)) (Num y))                  -> Mul (Num (x*y)) $ simplify e
+      (Mul (Mul (Num x) a) (Mul (Num y) b)) | a == b -> (Mul (Num $ x*y) (Mul n n))
+                                where n = simplify a
+      (Mul (Mul (Num x) a) (Mul b (Num y))) | a == b -> (Mul (Num $ x*y) (Mul n n))
+                                where n = simplify a
+      (Mul (Mul a (Num x)) (Mul b (Num y))) | a == b -> (Mul (Num $ x*y) (Mul n n))
+                                where n = simplify a
+      (Mul (Mul a (Num x)) (Mul (Num y) b)) | a == b -> (Mul (Num $ x*y) (Mul n n))
+                                where n = simplify a
+      (Mul x y)                                      -> (Mul x y)
+    where p = simplify e1
+          q = simplify e2
 
 
 -- Differentiate the given expression with respect to x(Var)
@@ -173,14 +173,15 @@ differentiate (Num _)           = Num 0
 differentiate (Add e1 e2)       = Add (differentiate e1) (differentiate e2)
 differentiate (Mul (Num x) Var) = Num x
 differentiate (Mul Var (Num x)) = Num x
-differentiate (Mul Var (Mul Var e)) = simplify $ Mul (Num 2) (Mul Var e)
 differentiate (Mul e (Sin ie))  = Mul (newSimpleS e ie) (Cos ie)
 differentiate (Mul (Sin ie) e)  = Mul (newSimpleS e ie) (Cos ie)
 differentiate (Mul e (Cos ie))  = Mul (newSimpleS e ie) (Sin ie)
 differentiate (Mul (Cos ie) e)  = Mul (newSimpleS e ie) (Sin ie)
+differentiate (Mul e1 e2)       = simplify $ Add (Mul (differentiate e1) e2) (Mul e1 (differentiate e2))
 
 newSimpleS e ie = simplify (Mul e (differentiate ie))
 newSimpleC e ie = simplify (Mul (Mul (Num (-1.0)) e) (differentiate ie))
 
+-- Just a shortcut function so I can write expressions as Strings and try them out
 readAndDiff :: String -> Expr
 readAndDiff s = differentiate $ fromJust $ readExpr s
