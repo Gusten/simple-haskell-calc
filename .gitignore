@@ -3,3 +3,4 @@
 !*.hs
 !.gitignore
 Parsing.hs
+Pages.hs
