@@ -144,4 +144,4 @@ differentiate (Mul e1 e2)       = simplify $ Add (Mul (differentiate e1) e2) (Mu
 
 -- Just a shortcut function so I can write expressions as Strings and try them out
 readAndDiff :: String -> Expr
-readAndDiff s = differentiate $ fromJust $ readExpr s
+readAndDiff s = differentiate $ simplify $ fromJust $ readExpr s

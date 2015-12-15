@@ -19,6 +19,7 @@ canHeight = 300
 main = do
     -- Elements
     canvas        <- mkCanvas canWidth canHeight
+    diffCanvas    <- mkCanvas canWidth canHeight
     zoomTxt       <- mkHTML "<b>Zoom scalar</b>"
     zoomInput     <- mkInput 20 "0.04" 
     fx            <- mkHTML "<i>f</i>(<i>x</i>)="
@@ -28,14 +29,16 @@ main = do
     diffOutput    <- mkInput 20 ""
 
     -- Layout
+    canvases <- mkDiv
+    row canvases [canvas,diffCanvas]
     formula <- mkDiv
     row formula [fx,input]
     zoomCtrl <- mkDiv
     row zoomCtrl [zoomTxt,zoomInput]
-    column documentBody [canvas,zoomCtrl,formula,draw,differ,diffOutput]
+    column documentBody [canvases,zoomCtrl,formula,draw,differ,diffOutput]
 
     -- Styling
-    setStyle documentBody "backgroundColor" "lightblue"
+    setStyle documentBody "backgroundColor" "lightgreen"
     setStyle documentBody "textAlign" "center"
     setStyle input "fontSize" "14pt"
     focus input
@@ -43,9 +46,10 @@ main = do
 
     -- Interaction
     Just can <- fromElem canvas
+    Just dCan <- fromElem diffCanvas
     onEvent draw  Click $ \_      -> readAndDraw zoomInput input can
     onEvent input KeyUp $ \code   -> when (code==13) $ readAndDraw zoomInput input can
-    onEvent differ  Click $ \_    -> differAndOutput input diffOutput
+    onEvent differ  Click $ \_    -> differAndOutput input diffOutput zoomInput dCan;
 
 
 -- Returns all points of the given expressions
@@ -60,7 +64,8 @@ readAndDraw zoom ele c = do
             text <- getProp ele "value"
             render c (stroke $ path $ points (fromJust $ readExpr text) (read scaling :: Double) (canWidth, canHeight) )
 
-differAndOutput :: Elem -> Elem -> IO ()
-differAndOutput exp output = do 
+differAndOutput :: Elem -> Elem -> Elem -> Canvas -> IO ()
+differAndOutput exp output zoom can = do 
                 text <- getProp exp "value"
                 setProp output "value" ((showExpr $ readAndDiff text))
+                readAndDraw zoom output can
