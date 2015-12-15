@@ -1,6 +1,10 @@
 -- Part 2 of the lab
 -- Author: Johan Gustafsson
 
+import Expr
+import Data.Maybe
+import Test.QuickCheck
+
 prop_ShowReadExpr :: Expr -> Double -> Bool
 prop_ShowReadExpr e x = doubleIsEqual (eval e x) (eval (fromJust (readExpr $ showExpr e )) x)
 
