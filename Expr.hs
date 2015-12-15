@@ -1,10 +1,11 @@
 -- Part 1 of the lab
 -- Author: Johan Gustafsson
 
+module Expr where
+
 import Parsing
 import Data.Char
 import Data.Maybe
-import Test.QuickCheck
 import Data.List
 import Control.Applicative
 
@@ -84,40 +85,6 @@ doubleParser = do num <- readsP
                   return num
 
 
-prop_ShowReadExpr :: Expr -> Double -> Bool
-prop_ShowReadExpr e x = doubleIsEqual (eval e x) (eval (fromJust (readExpr $ showExpr e )) x)
-
--- Consider floating point error, lazy implementation I know
-doubleIsEqual :: Double -> Double -> Bool
-doubleIsEqual d1 d2 = abs(d1-d2) < 0.0001
-
-
--- Tells quickCheck how to generate test expressions.
-arbExpr :: Int -> Gen Expr
-arbExpr s = frequency [ 
-                      (1, do n <- arbitrary
-                             if n > 0 then
-                                return (Num n)
-                             else
-                                return (Num (abs n)))
-                    , (s, do a <- arbExpr s'
-                             b <- arbExpr s'
-                             return (Add a b))
-                    , (s, do a <- arbExpr s'
-                             b <- arbExpr s'
-                             return (Mul a b))
-                    , (s, do a <- arbExpr s'
-                             return (Sin a))
-                    , (s, do a <- arbExpr s'
-                             return (Cos a))
-                    , (s, do arbExpr s'
-                             return Var)]
-                where s' = s `div` 2
-
-instance Arbitrary Expr where
-  arbitrary = sized arbExpr
-
-
 -- I am not going to calculate sin()cos(). First of all it's not exact
 -- and the approximation is gonna be waaay ugly.
 -- Also I missed the part with no including variables. Well I already did it so...
@@ -170,17 +137,10 @@ simplify (Mul e1 e2) = case (Mul p q) of
 differentiate :: Expr -> Expr
 differentiate Var               = Num 1
 differentiate (Num _)           = Num 0
-differentiate (Add e1 e2)       = Add (differentiate e1) (differentiate e2)
-differentiate (Mul (Num x) Var) = Num x
-differentiate (Mul Var (Num x)) = Num x
-differentiate (Mul e (Sin ie))  = Mul (newSimpleS e ie) (Cos ie)
-differentiate (Mul (Sin ie) e)  = Mul (newSimpleS e ie) (Cos ie)
-differentiate (Mul e (Cos ie))  = Mul (newSimpleS e ie) (Sin ie)
-differentiate (Mul (Cos ie) e)  = Mul (newSimpleS e ie) (Sin ie)
+differentiate (Sin e)           = simplify $ Mul (differentiate e) (Cos e)
+differentiate (Cos e)           = simplify $ Mul (Num (-1)) (Mul (differentiate e) (Sin e))
+differentiate (Add e1 e2)       = simplify $ Add (differentiate e1) (differentiate e2)
 differentiate (Mul e1 e2)       = simplify $ Add (Mul (differentiate e1) e2) (Mul e1 (differentiate e2))
-
-newSimpleS e ie = simplify (Mul e (differentiate ie))
-newSimpleC e ie = simplify (Mul (Mul (Num (-1.0)) e) (differentiate ie))
 
 -- Just a shortcut function so I can write expressions as Strings and try them out
 readAndDiff :: String -> Expr
