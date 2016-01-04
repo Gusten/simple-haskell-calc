@@ -5,6 +5,9 @@ import Expr
 import Data.Maybe
 import Test.QuickCheck
 
+-- Simplify needs to be quickchecked
+-- Define min and check it
+
 prop_ShowReadExpr :: Expr -> Double -> Bool
 prop_ShowReadExpr e x = doubleIsEqual (eval e x) (eval (fromJust (readExpr $ showExpr e )) x)
 

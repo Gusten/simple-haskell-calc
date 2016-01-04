@@ -1,6 +1,8 @@
 -- Part 1 of the lab
 -- Author: Johan Gustafsson
 
+-- 8th of january, the recap lecture. 2 lectures
+
 module Expr where
 
 import Parsing
@@ -10,31 +12,61 @@ import Data.List
 import Control.Applicative
 
 -- Data type for representing simple mathematical expressions
-data Expr
+{-data Expr
     = Num Double
     | Var
     | Add Expr Expr
     | Mul Expr Expr
     | Sin Expr
     | Cos Expr
-        deriving (Eq, Show)
+        deriving (Eq, Show)-}
+
+-- New function datatypes
+-- Binary, uni
+data Expr
+    = Num Double
+    | Var
+    | UnF UOp Expr
+    | BiF BOp Expr Expr
+        --deriving (Eq, Show)
+
+type UOp = (String, (Double -> Double))
+type BOp = (String, (Double -> Double -> Double))
+
+add :: Double -> Double -> Double
+add x y = x + y
+
+mul :: Double -> Double -> Double
+mul x y = x * y
+
+tSin :: Double -> Double
+tSin x = sin x
+
+tCos :: Double -> Double
+tCos x = cos x
 
 
 showExpr :: Expr -> String
-showExpr (Num a)     = show a
-showExpr (Var)       = "x"
-showExpr (Sin e)     = "sin(" ++ showExpr e ++ ")"
+showExpr (Num a)            = show a
+showExpr (Var)              = "x"
+showExpr (UnF (s, _) e)     = s ++ "(" ++ showExpr e ++ ")"
+showExpr (BiF (s, _) e1 e2) = showExpr e1 ++ " " ++ s ++ " " ++ showExpr e2
+--showExpr (BiF mul e1 e2) = showFactor e1 ++ " * " ++ showFactor e2
+--showExpr (UnF op e) = show op ++ "(" ++ showExpr e ++ ")"
+{-showExpr (Sin e)     = "sin(" ++ showExpr e ++ ")"
 showExpr (Cos e)     = "cos(" ++ showExpr e ++ ")"
 showExpr (Add e1 e2) = showExpr e1 ++ " + " ++ showExpr e2
 showExpr (Mul e1 e2) = showFactor e1 ++ " * " ++ showFactor e2
         where showFactor (Add e1 e2) = "(" ++ showExpr (Add e1 e2) ++ ")"
-              showFactor e           = showExpr e
+              showFactor e           = showExpr e-}
 
 
 eval :: Expr -> Double -> Double
-eval (Num n) _     = n
-eval (Var) v       = v
-eval (Sin e) v     = sin (eval e v)
+eval (Num n) _             = n
+eval (Var) v               = v
+eval (UnF (_, op) e) v     = op (eval e v)
+eval (BiF (_, op) e1 e2) v = op (eval e1 v) (eval e2 v)
+{-eval (Sin e) v     = sin (eval e v)
 eval (Cos e) v     = cos (eval e v)
 eval (Add e1 e2) v = (eval e1 v) + (eval e2 v)
 eval (Mul e1 e2) v = (eval e1 v) * (eval e2 v)
@@ -63,6 +95,9 @@ funcTerm = (fmap Cos (cosParser >-> factor)
 factor :: Parser Expr
 factor = char '(' >-> expr <-< char ')' +++ numVarParser
 
+-- Create a new parser for string like char m -> a (m -> [a])
+-- Sequence
+
 sinParser :: Parser Char
 sinParser = do 
     char 's'
@@ -89,6 +124,8 @@ doubleParser = do num <- readsP
 -- and the approximation is gonna be waaay ugly.
 -- Also I missed the part with no including variables. Well I already did it so...
 -- This quickly turned into quite a monster didn't it
+
+-- Check lecture notes for simplify
 simplify :: Expr -> Expr
 simplify Var     = Var
 simplify (Num x) = Num x
@@ -145,3 +182,4 @@ differentiate (Mul e1 e2)       = simplify $ Add (Mul (differentiate e1) e2) (Mu
 -- Just a shortcut function so I can write expressions as Strings and try them out
 readAndDiff :: String -> Expr
 readAndDiff s = differentiate $ simplify $ fromJust $ readExpr s
+-}
