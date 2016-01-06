@@ -12,64 +12,60 @@ import Data.List
 import Control.Applicative
 
 -- Data type for representing simple mathematical expressions
-{-data Expr
-    = Num Double
-    | Var
-    | Add Expr Expr
-    | Mul Expr Expr
-    | Sin Expr
-    | Cos Expr
-        deriving (Eq, Show)-}
 
 -- New function datatypes
 -- Binary, uni
 data Expr
     = Num Double
     | Var
-    | UnF UOp Expr
-    | BiF BOp Expr Expr
-        --deriving (Eq, Show)
+    | UnF UFunc Expr
+    | BiF BFunc Expr Expr
+        deriving (Show)
 
-type UOp = (String, (Double -> Double))
-type BOp = (String, (Double -> Double -> Double))
+class UOp a where
+    udop :: a -> (Double -> Double)
 
-add :: Double -> Double -> Double
-add x y = x + y
+data UFunc = Sin | Cos | Tan
+    deriving (Show, Enum)
 
-mul :: Double -> Double -> Double
-mul x y = x * y
+instance UOp UFunc where
+    udop Sin = sin
+    udop Cos = cos
+    udop Tan = tan
 
-tSin :: Double -> Double
-tSin x = sin x
 
-tCos :: Double -> Double
-tCos x = cos x
+class BOp a where
+    bdop :: a -> (Double -> Double -> Double)
 
+data BFunc = Add | Mul 
+    deriving (Enum)
+
+instance Show BFunc where
+    show Add = "+"
+    show Mul = "*"
+
+instance BOp BFunc where
+    bdop Add = (+)
+    bdop Mul = (*)
+
+
+-- Differentiate the given expression with respect to x(Var)
 
 showExpr :: Expr -> String
-showExpr (Num a)            = show a
-showExpr (Var)              = "x"
-showExpr (UnF (s, _) e)     = s ++ "(" ++ showExpr e ++ ")"
-showExpr (BiF (s, _) e1 e2) = showExpr e1 ++ " " ++ s ++ " " ++ showExpr e2
---showExpr (BiF mul e1 e2) = showFactor e1 ++ " * " ++ showFactor e2
---showExpr (UnF op e) = show op ++ "(" ++ showExpr e ++ ")"
-{-showExpr (Sin e)     = "sin(" ++ showExpr e ++ ")"
-showExpr (Cos e)     = "cos(" ++ showExpr e ++ ")"
-showExpr (Add e1 e2) = showExpr e1 ++ " + " ++ showExpr e2
-showExpr (Mul e1 e2) = showFactor e1 ++ " * " ++ showFactor e2
-        where showFactor (Add e1 e2) = "(" ++ showExpr (Add e1 e2) ++ ")"
-              showFactor e           = showExpr e-}
+showExpr (Num a)         = show a
+showExpr (Var)           = "x"
+showExpr (UnF f e)       = show f ++ "(" ++ showExpr e ++ ")"
+showExpr (BiF Mul e1 e2) = showFactor e1 ++ " * " ++ showFactor e2
+        where showFactor (BiF Add e1 e2) = "(" ++ showExpr (BiF Add e1 e2) ++ ")"
+              showFactor e               = showExpr e
+showExpr (BiF f e1 e2)   = showExpr e1 ++ " " ++ show f ++ " " ++ showExpr e2
 
 
 eval :: Expr -> Double -> Double
-eval (Num n) _             = n
-eval (Var) v               = v
-eval (UnF (_, op) e) v     = op (eval e v)
-eval (BiF (_, op) e1 e2) v = op (eval e1 v) (eval e2 v)
-{-eval (Sin e) v     = sin (eval e v)
-eval (Cos e) v     = cos (eval e v)
-eval (Add e1 e2) v = (eval e1 v) + (eval e2 v)
-eval (Mul e1 e2) v = (eval e1 v) * (eval e2 v)
+eval (Num n) _       = n
+eval (Var) v         = v
+eval (UnF f e) v     = (udop f) (eval e v)
+eval (BiF f e1 e2) v = (bdop f) (eval e1 v) (eval e2 v)
 
 
 numVarParser :: Parser Expr
@@ -82,15 +78,20 @@ readExpr s = let s' = filter (not.isSpace) s
                      _           -> Nothing
 
 expr :: Parser Expr
-expr = foldr1 Add `fmap` chain term (char '+')
+expr = foldr1 (BiF Add) `fmap` chain term (char '+')
 
 term :: Parser Expr
-term = foldr1 Mul `fmap` chain funcTerm (char '*')
+term = foldr1 (BiF Mul) `fmap` chain funcTerm (char '*')
 
 funcTerm :: Parser Expr
-funcTerm = (fmap Cos (cosParser >-> factor) 
-       +++ fmap Sin (sinParser >-> factor))
+funcTerm = foldl1 (+++) (map parseUF [(toEnum 0::UFunc)..])
        +++ factor
+
+parseUF :: UFunc -> Parser Expr
+parseUF f = do 
+    (stringParser . show) f
+    e <- factor
+    return (UnF f e)
 
 factor :: Parser Expr
 factor = char '(' >-> expr <-< char ')' +++ numVarParser
@@ -98,17 +99,9 @@ factor = char '(' >-> expr <-< char ')' +++ numVarParser
 -- Create a new parser for string like char m -> a (m -> [a])
 -- Sequence
 
-sinParser :: Parser Char
-sinParser = do 
-    char 's'
-    char 'i'
-    char 'n'
+stringParser :: String -> Parser ()
+stringParser s = sequence_ [ char c | c <- s]
 
-cosParser :: Parser Char
-cosParser = do 
-    char 'c'
-    char 'o'
-    char 's'
 
 varParser :: Parser Expr
 varParser = do char 'x' 
@@ -129,42 +122,21 @@ doubleParser = do num <- readsP
 simplify :: Expr -> Expr
 simplify Var     = Var
 simplify (Num x) = Num x
-simplify (Sin e) = Sin (simplify e)
-simplify (Cos e) = Cos (simplify e)
-simplify (Add e1 e2) = case (Add p q) of 
-      (Add (Num x) (Num y))                          -> Num $ x+y
-      (Add (Num 0) q)                                -> simplify q
-      (Add p (Num 0))                                -> simplify p
-      (Add (Mul (Num x) a) b) | a == b               -> (Mul (Num $ x+1) (simplify a))
-      (Add a (Mul (Num x) b)) | a == b               -> (Mul (Num $ x+1) (simplify a))
-      (Add (Mul a (Num x)) b) | a == b               -> (Mul (Num $ x+1) (simplify a))
-      (Add a (Mul b (Num x))) | a == b               -> (Mul (Num $ x+1) (simplify a))
-      (Add (Mul (Num x) a) (Mul (Num y) b)) | a == b -> (Mul (Num $ x+y) (simplify a))
-      (Add (Mul (Num x) a) (Mul b (Num y))) | a == b -> (Mul (Num $ x+y) (simplify a))
-      (Add (Mul a (Num x)) (Mul b (Num y))) | a == b -> (Mul (Num $ x+y) (simplify a))
-      (Add (Mul a (Num x)) (Mul (Num y) b)) | a == b -> (Mul (Num $ x+y) (simplify a))
-      (Add x y)                                      -> (Add x y)
+simplify (UnF f e) = (UnF f (simplify e))
+simplify (BiF Add e1 e2) = case (BiF Add p q) of 
+      (BiF Add (Num x) (Num y)) -> Num $ x+y
+      (BiF Add (Num 0) q)       -> q
+      (BiF Add p (Num 0))       -> p
+      (BiF Add p q)             -> (BiF Add p q)
     where p = simplify e1
           q = simplify e2
-simplify (Mul e1 e2) = case (Mul p q) of 
-      (Mul (Num x) (Num y))                          -> Num $ x*y
-      (Mul (Num 0) _)                                -> Num 0
-      (Mul _ (Num 0))                                -> Num 0
-      (Mul (Num 1) q)                                -> simplify q
-      (Mul p (Num 1))                                -> simplify p 
-      (Mul (Num x) (Mul (Num y) e))                  -> Mul (Num (x*y)) $ simplify e
-      (Mul (Num x) (Mul e (Num y)))                  -> Mul (Num (x*y)) $ simplify e
-      (Mul (Mul (Num x) e) (Num y))                  -> Mul (Num (x*y)) $ simplify e
-      (Mul (Mul e (Num x)) (Num y))                  -> Mul (Num (x*y)) $ simplify e
-      (Mul (Mul (Num x) a) (Mul (Num y) b)) | a == b -> (Mul (Num $ x*y) (Mul n n))
-                                where n = simplify a
-      (Mul (Mul (Num x) a) (Mul b (Num y))) | a == b -> (Mul (Num $ x*y) (Mul n n))
-                                where n = simplify a
-      (Mul (Mul a (Num x)) (Mul b (Num y))) | a == b -> (Mul (Num $ x*y) (Mul n n))
-                                where n = simplify a
-      (Mul (Mul a (Num x)) (Mul (Num y) b)) | a == b -> (Mul (Num $ x*y) (Mul n n))
-                                where n = simplify a
-      (Mul x y)                                      -> (Mul x y)
+simplify (BiF Mul e1 e2) = case (BiF Mul p q) of 
+      (BiF Mul (Num x) (Num y)) -> Num $ x*y
+      (BiF Mul (Num 0) _)       -> Num 0
+      (BiF Mul _ (Num 0))       -> Num 0
+      (BiF Mul (Num 1) q)       -> q
+      (BiF Mul p (Num 1))       -> p 
+      (BiF Mul p q)   -> (BiF Mul p q)
     where p = simplify e1
           q = simplify e2
 
@@ -172,14 +144,13 @@ simplify (Mul e1 e2) = case (Mul p q) of
 -- Differentiate the given expression with respect to x(Var)
 -- Using simplify to keep things nice and tidy after differentation.
 differentiate :: Expr -> Expr
-differentiate Var               = Num 1
-differentiate (Num _)           = Num 0
-differentiate (Sin e)           = simplify $ Mul (differentiate e) (Cos e)
-differentiate (Cos e)           = simplify $ Mul (Num (-1)) (Mul (differentiate e) (Sin e))
-differentiate (Add e1 e2)       = simplify $ Add (differentiate e1) (differentiate e2)
-differentiate (Mul e1 e2)       = simplify $ Add (Mul (differentiate e1) e2) (Mul e1 (differentiate e2))
+differentiate Var             = Num 1
+differentiate (Num _)         = Num 0
+differentiate (UnF Sin e)     = simplify $ BiF Mul (differentiate e) (UnF Cos e)
+differentiate (UnF Cos e)     = simplify $ BiF Mul (Num (-1)) (BiF Mul (differentiate e) (UnF Sin e))
+differentiate (BiF Add e1 e2) = simplify $ BiF Add (differentiate e1) (differentiate e2)
+differentiate (BiF Mul e1 e2) = simplify $ BiF Add (BiF Mul (differentiate e1) e2) (BiF Mul e1 (differentiate e2))
 
 -- Just a shortcut function so I can write expressions as Strings and try them out
 readAndDiff :: String -> Expr
 readAndDiff s = differentiate $ simplify $ fromJust $ readExpr s
--}

@@ -23,14 +23,14 @@ arbExpr s = frequency [
                              return (Num (abs n)))
                     , (s, do a <- arbExpr s'
                              b <- arbExpr s'
-                             return (Add a b))
+                             return (BiF Add a b))
                     , (s, do a <- arbExpr s'
                              b <- arbExpr s'
-                             return (Mul a b))
+                             return (BiF Mul a b))
                     , (s, do a <- arbExpr s'
-                             return (Sin a))
+                             return (UnF Sin a))
                     , (s, do a <- arbExpr s'
-                             return (Cos a))
+                             return (UnF Cos a))
                     , (s, do arbExpr s'
                              return Var)]
                 where s' = s `div` 2
