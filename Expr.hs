@@ -1,8 +1,6 @@
 -- Part 1 of the lab
 -- Author: Johan Gustafsson
 
--- 8th of january, the recap lecture. 2 lectures
-
 module Expr where
 
 import Parsing
@@ -12,9 +10,6 @@ import Data.List
 import Control.Applicative
 
 -- Data type for representing simple mathematical expressions
-
--- New function datatypes
--- Binary, uni
 data Expr
     = Num Double
     | Var
@@ -22,45 +17,70 @@ data Expr
     | BiF BFunc Expr Expr
         deriving (Show)
 
-class UOp a where
-    udop :: a -> (Double -> Double)
 
+{--
+  By defining a separate class and data type for the unary and binary 
+  functions. We can have most of the function specific implementation
+  in one place and also keep it easily extendable.
+--}
+
+-- Data type to represent unary functions
 data UFunc = Sin | Cos | Tan
     deriving (Show, Enum)
 
+-- This class lets us map desired implemented functions to each
+-- of the defined unary functions.
+class UOp a where
+    udop :: a -> (Double -> Double)
+    uStrRep :: a -> String
+
+-- Definitions of each unary functions actual implementation and
+-- their string representation. 
 instance UOp UFunc where
     udop Sin = sin
     udop Cos = cos
     udop Tan = tan
+    uStrRep Sin = "sin"
+    uStrRep Cos = "cos"
+    uStrRep Tan = "tan"
 
+-- Data type to represent binary functions
+-- The order of definition decides the priority of evaluation
+data BFunc = Add | Mul 
+    deriving (Eq, Show, Enum)
 
+-- This class lets us map desired implemented functions to each
+-- of the defined binary functions.
 class BOp a where
     bdop :: a -> (Double -> Double -> Double)
+    bStrRep :: a -> String
 
-data BFunc = Add | Mul 
-    deriving (Enum)
-
-instance Show BFunc where
-    show Add = "+"
-    show Mul = "*"
-
+-- Definitions of each binary functions actual implementation and
+-- their string representation. 
 instance BOp BFunc where
-    bdop Add = (+)
-    bdop Mul = (*)
+    bdop Add   = (+)
+    bdop Mul   = (*)
+    bStrRep Add = "+"
+    bStrRep Mul = "*"
 
 
--- Differentiate the given expression with respect to x(Var)
 
+-- Show a given expression
 showExpr :: Expr -> String
-showExpr (Num a)         = show a
-showExpr (Var)           = "x"
-showExpr (UnF f e)       = show f ++ "(" ++ showExpr e ++ ")"
-showExpr (BiF Mul e1 e2) = showFactor e1 ++ " * " ++ showFactor e2
-        where showFactor (BiF Add e1 e2) = "(" ++ showExpr (BiF Add e1 e2) ++ ")"
+showExpr (Num a)       = show a
+showExpr (Var)         = "x"
+showExpr (UnF f e)     = uStrRep f ++ "(" ++ showExpr e ++ ")"
+-- This makes use of the order of the defined binary functions to handle
+-- priority for evaluation.
+showExpr (BiF f1 e1 e2) = showFactor e1 ++ " " ++ bStrRep f1 ++ " " ++ showFactor e2
+        where showFactor (BiF f2 e1 e2) | i2 < i1 = "(" ++ showExpr (BiF f2 e1 e2) ++ ")"
+                  where i1 = fromJust $ elemIndex f1 [(toEnum 0::BFunc)..]
+                        i2 = fromJust $ elemIndex f2 [(toEnum 0::BFunc)..]
               showFactor e               = showExpr e
-showExpr (BiF f e1 e2)   = showExpr e1 ++ " " ++ show f ++ " " ++ showExpr e2
 
 
+-- This function evaluates a given Expr using the given double as the Var value.
+-- UnF functions/operators are extracted using udop and bdop respectively.
 eval :: Expr -> Double -> Double
 eval (Num n) _       = n
 eval (Var) v         = v
@@ -73,32 +93,34 @@ numVarParser  = fmap Num doubleParser +++ varParser
 
 readExpr :: String -> Maybe Expr
 readExpr s = let s' = filter (not.isSpace) s
-             in case parse expr s' of
+             in case parse (expr [(toEnum 0::BFunc)..]) s' of
                      Just (e,"") -> Just e
                      _           -> Nothing
 
-expr :: Parser Expr
-expr = foldr1 (BiF Add) `fmap` chain term (char '+')
 
-term :: Parser Expr
-term = foldr1 (BiF Mul) `fmap` chain funcTerm (char '*')
+-- Function to try an parse an expression
+-- This takes the list of binary functions as input so it can
+-- try and parse the functions in an correct order.
+-- Maybe this could be remade even more, I'm not sure tbh.
+-- Especially the funcTerm part.
+expr :: [BFunc] -> Parser Expr
+expr (f:[]) = foldr1 (BiF f) `fmap` chain funcTerm (stringParser (bStrRep f))
+      where funcTerm = foldl1 (+++) (map parseUF [(toEnum 0::UFunc)..])
+                       +++ factor
+expr (f:fs) = foldr1 (BiF f) `fmap` chain (expr fs) (stringParser (bStrRep f))
 
-funcTerm :: Parser Expr
-funcTerm = foldl1 (+++) (map parseUF [(toEnum 0::UFunc)..])
-       +++ factor
-
+-- This is in my opinion ugly but I can't really say how to "prettify" it.
 parseUF :: UFunc -> Parser Expr
 parseUF f = do 
-    (stringParser . show) f
+    (stringParser . uStrRep) f
     e <- factor
     return (UnF f e)
 
 factor :: Parser Expr
-factor = char '(' >-> expr <-< char ')' +++ numVarParser
+factor = char '(' >-> (expr [(toEnum 0::BFunc)..]) <-< char ')' +++ numVarParser
 
--- Create a new parser for string like char m -> a (m -> [a])
--- Sequence
 
+-- Parse a string by using the char parser.
 stringParser :: String -> Parser ()
 stringParser s = sequence_ [ char c | c <- s]
 
@@ -113,12 +135,9 @@ doubleParser = do num <- readsP
                   return num
 
 
--- I am not going to calculate sin()cos(). First of all it's not exact
--- and the approximation is gonna be waaay ugly.
--- Also I missed the part with no including variables. Well I already did it so...
--- This quickly turned into quite a monster didn't it
-
--- Check lecture notes for simplify
+-- Simplify a given expression
+-- I made this much smaller the second time around for code readability.
+-- It's not as good but for the purpose of this lab it is ok.
 simplify :: Expr -> Expr
 simplify Var     = Var
 simplify (Num x) = Num x
